@@ -208,6 +208,11 @@ class YouTubeAPI:
 
     async def _yt_dlp_info(self, target: str, use_search: bool = False):
         loop = asyncio.get_running_loop()
+        print(
+            f"[YUKI YTDLP ACTIVITY] extract_start target={target!r} "
+            f"use_search={use_search} cookiefile_exists={os.path.exists(cookies_file)}",
+            flush=True,
+        )
 
         def extract(cookie_enabled):
             opts = {
@@ -232,9 +237,16 @@ class YouTubeAPI:
         cookie_modes = (True, False) if use_search else (True, False)
         for cookie_enabled in cookie_modes:
             try:
-                return await loop.run_in_executor(
+                result = await loop.run_in_executor(
                     None, lambda ce=cookie_enabled: extract(ce)
                 )
+                print(
+                    f"[YUKI YTDLP ACTIVITY] extract_success "
+                    f"cookiefile={cookie_enabled} "
+                    f"entries={len(result.get('entries') or []) if isinstance(result, dict) else 'n/a'}",
+                    flush=True,
+                )
+                return result
             except Exception as e:
                 last_error = e
                 print(
@@ -243,6 +255,7 @@ class YouTubeAPI:
                     f"type={type(e).__name__}: {e}",
                     flush=True,
                 )
+                traceback.print_exc()
         raise last_error
 
     async def _videos_search_fallback(self, query: str):

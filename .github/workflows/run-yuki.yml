@@ -1,0 +1,120 @@
+name: Run TohidYUKIMUSICS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 355
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg build-essential libffi-dev libssl-dev
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+      - name: Validate required secrets
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          MONGO_DB_URI: ${{ secrets.MONGO_DB_URI }}
+          STRING_SESSION: ${{ secrets.STRING_SESSION }}
+        run: |
+          set -euo pipefail
+          for name in API_ID API_HASH BOT_TOKEN MONGO_DB_URI STRING_SESSION; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing required secret: $name"
+              exit 1
+            fi
+          done
+      - name: Start bot
+        id: bot
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          MONGO_DB_URI: ${{ secrets.MONGO_DB_URI }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+          OWNER_USERNAME: ${{ secrets.OWNER_USERNAME }}
+          BOT_USERNAME: ${{ secrets.BOT_USERNAME }}
+          BOT_NAME: ${{ secrets.BOT_NAME }}
+          ASSUSERNAME: ${{ secrets.ASSUSERNAME }}
+          LOGGER_ID: ${{ secrets.LOGGER_ID }}
+          STRING_SESSION: ${{ secrets.STRING_SESSION }}
+          STRING_SESSION2: ${{ secrets.STRING_SESSION2 }}
+          STRING_SESSION3: ${{ secrets.STRING_SESSION3 }}
+          STRING_SESSION4: ${{ secrets.STRING_SESSION4 }}
+          STRING_SESSION5: ${{ secrets.STRING_SESSION5 }}
+          STRING_SESSION6: ${{ secrets.STRING_SESSION6 }}
+          STRING_SESSION7: ${{ secrets.STRING_SESSION7 }}
+          SUPPORT_CHANNEL: ${{ secrets.SUPPORT_CHANNEL }}
+          SUPPORT_CHAT: ${{ secrets.SUPPORT_CHAT }}
+          DURATION_LIMIT: ${{ secrets.DURATION_LIMIT }}
+          START_IMG_URL: ${{ secrets.START_IMG_URL }}
+          PING_IMG_URL: ${{ secrets.PING_IMG_URL }}
+          WEBSITE_URL: ${{ secrets.WEBSITE_URL }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          NSFWAPI: ${{ secrets.NSFWAPI }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m YUKIIMUSIC &
+          echo $! > "$RUNNER_TEMP/yuki-music.pid"
+          wait $!
+      - name: Verify bot ready
+        id: ready
+        env:
+          PID_FILE: ${{ runner.temp }}/yuki-music.pid
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..90}; do
+            if [[ -f "$PID_FILE" ]]; then
+              pid="$(cat "$PID_FILE")"
+              if kill -0 "$pid" 2>/dev/null; then
+                echo "YUKIIMUSICS process is alive (PID $pid)."
+                exit 0
+              fi
+            fi
+            sleep 1
+          done
+          echo "::error::YUKIIMUSICS process did not become ready."
+          exit 1
+      - name: Schedule successor
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sleep 20100
+          gh workflow run run-yuki.yml --repo "$GITHUB_REPOSITORY" --ref main
+      - name: Monitor bot
+        if: success()
+        env:
+          PID_FILE: ${{ runner.temp }}/yuki-music.pid
+        run: |
+          set -euo pipefail
+          while true; do
+            [[ -f "$PID_FILE" ]] || { echo "::error::PID file disappeared."; exit 1; }
+            pid="$(cat "$PID_FILE")"
+            kill -0 "$pid" 2>/dev/null || { echo "::error::YUKIIMUSICS process stopped."; exit 1; }
+            sleep 30
+          done

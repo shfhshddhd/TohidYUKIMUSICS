@@ -21,6 +21,7 @@
 
 import YUKIIMUSIC.yuki_guard
 import asyncio
+import traceback
 
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import (
@@ -202,16 +203,22 @@ def PlayWrapper(command):
                 except:
                     pass
 
-        return await command(
-            client,
-            message,
-            _,
-            chat_id,
-            video,
-            channel,
-            playmode,
-            url,
-            fplay,
-        )
+        print(f"[YUKI PLAY TRACE] received /play request chat={message.chat.id} user={message.from_user.id} text={message.text!r}", flush=True)
+        try:
+            return await command(
+                client,
+                message,
+                _,
+                chat_id,
+                video,
+                channel,
+                playmode,
+                url,
+                fplay,
+            )
+        except Exception as e:
+            print(f"[YUKI PLAY UNHANDLED] {type(e).__name__}: {e}", flush=True)
+            traceback.print_exc()
+            raise
 
     return wrapper

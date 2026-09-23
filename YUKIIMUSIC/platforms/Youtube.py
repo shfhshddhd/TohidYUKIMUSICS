@@ -220,13 +220,16 @@ class YouTubeAPI:
                 # Search only needs result metadata. Flat extraction avoids
                 # forcing a full YouTube player request before we have a video.
                 opts["extract_flat"] = True
-            if cookie_enabled and os.path.exists(cookies_file) and not use_search:
+            if cookie_enabled and os.path.exists(cookies_file):
                 opts["cookiefile"] = cookies_file
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(target, download=False)
 
         last_error = None
-        cookie_modes = (False,) if use_search else (True, False)
+        # Try the saved YouTube cookies first. Some YouTube search/player
+        # requests are rejected or challenged when made anonymously. If the
+        # cookie session fails, retry without cookies before giving up.
+        cookie_modes = (True, False) if use_search else (True, False)
         for cookie_enabled in cookie_modes:
             try:
                 return await loop.run_in_executor(
@@ -296,6 +299,11 @@ class YouTubeAPI:
             )
 
             try:
+                print(
+                    f"[YUKI YOUTUBE TRACE] resolving query={link!r} "
+                    f"with yt-dlp search={is_search}",
+                    flush=True,
+                )
                 info = await self._yt_dlp_info(target, use_search=is_search)
                 if is_search:
                     entries = info.get("entries") or []

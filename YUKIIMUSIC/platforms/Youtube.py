@@ -192,20 +192,35 @@ class YouTubeAPI:
         return result
 
     async def track(self, link: str, videoid: Union[bool, str] = None):
-        if videoid: link = self.base + link
-        if "&" in link: link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
+        original_link = link
+        try:
+            if videoid:
+                link = self.base + link
+            if "&" in link:
+                link = link.split("&")[0]
+            print(f"[YUKI YOUTUBE TRACE] track start link={link!r} videoid={videoid!r}", flush=True)
+            results = VideosSearch(link, limit=1)
+            response = await results.next()
+            found = response.get("result") or []
+            print(f"[YUKI YOUTUBE TRACE] search returned {len(found)} result(s)", flush=True)
+            if not found:
+                raise RuntimeError("YouTube search returned no results")
+            result = found[0]
             title = result["title"]
             duration_min = result["duration"]
             vidid = result["id"]
             yturl = result["link"]
             thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-        track_details = {
-            "title": title, "link": yturl, "vidid": vidid,
-            "duration_min": duration_min, "thumb": thumbnail
-        }
-        return track_details, vidid
+            track_details = {
+                "title": title, "link": yturl, "vidid": vidid,
+                "duration_min": duration_min, "thumb": thumbnail
+            }
+            print(f"[YUKI YOUTUBE TRACE] track success vidid={vidid!r}", flush=True)
+            return track_details, vidid
+        except Exception as e:
+            print(f"[YUKI YOUTUBE ERROR] link={original_link!r} type={type(e).__name__}: {e}", flush=True)
+            traceback.print_exc()
+            raise
 
     async def formats(self, link: str, videoid: Union[bool, str] = None):
         if videoid: link = self.base + link

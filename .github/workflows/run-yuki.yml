@@ -81,9 +81,13 @@ jobs:
             exit 1
           fi
           printf 'LICENSE_KEY=%s\n' "$LICENSE_KEY" > .env
-          nohup python -m YUKIIMUSIC > "$RUNNER_TEMP/yuki-music.log" 2>&1 &
+
+          # Stream all bot stdout/stderr into the GitHub Actions log
+          # while keeping a full copy in the runner temp log file.
+          nohup bash -c 'stdbuf -oL -eL python -u -m YUKIIMUSIC 2>&1 | tee "$1"' _ "$RUNNER_TEMP/yuki-music.log" &
           echo $! > "$RUNNER_TEMP/yuki-music.pid"
-          echo "YUKIIMUSICS started with PID $(cat "$RUNNER_TEMP/yuki-music.pid")"
+          echo "YUKIIMUSICS started with monitor PID $(cat "$RUNNER_TEMP/yuki-music.pid")"
+
       - name: Verify bot ready
         id: ready
         env:
@@ -96,19 +100,22 @@ jobs:
               pid="$(cat "$PID_FILE")"
               if ! kill -0 "$pid" 2>/dev/null; then
                 echo "::error::YUKIIMUSICS exited during startup."
-                tail -n 120 "$RUNNER_TEMP/yuki-music.log" || true
+                echo "===== LAST 200 BOT LOG LINES ====="
+                tail -n 200 "$RUNNER_TEMP/yuki-music.log" || true
                 exit 1
               fi
               if (( i >= 30 )); then
-                echo "YUKIIMUSICS process is alive after startup wait (PID $pid)."
+                echo "YUKIIMUSICS process is alive after startup wait (monitor PID $pid)."
                 exit 0
               fi
             fi
             sleep 1
           done
           echo "::error::YUKIIMUSICS did not become ready."
-          tail -n 120 "$RUNNER_TEMP/yuki-music.log" || true
+          echo "===== LAST 200 BOT LOG LINES ====="
+          tail -n 200 "$RUNNER_TEMP/yuki-music.log" || true
           exit 1
+
       - name: Monitor and schedule successor
         env:
           GH_TOKEN: ${{ github.token }}
@@ -122,7 +129,8 @@ jobs:
             pid="$(cat "$PID_FILE")"
             if ! kill -0 "$pid" 2>/dev/null; then
               echo "::error::YUKIIMUSICS process stopped."
-              tail -n 120 "$RUNNER_TEMP/yuki-music.log" || true
+              echo "===== LAST 200 BOT LOG LINES ====="
+              tail -n 200 "$RUNNER_TEMP/yuki-music.log" || true
               exit 1
             fi
             age=$(( $(date +%s) - started ))

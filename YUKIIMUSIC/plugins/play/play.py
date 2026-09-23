@@ -23,6 +23,7 @@ import YUKIIMUSIC.yuki_guard
 import random
 import string
 import re
+import traceback
 
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InputMediaPhoto, Message
@@ -183,6 +184,8 @@ async def play_commnd(
                     forceplay=fplay,
                 )
             except Exception as e:
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
@@ -196,7 +199,11 @@ async def play_commnd(
                     return await mystic.edit_text(
                         _["play_7"].format(f"{' | '.join(formats)}")
                     )
-            except:
+            except Exception as e:
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
                 return await mystic.edit_text(
                     _["play_7"].format(f"{' | '.join(formats)}")
                 )
@@ -227,6 +234,8 @@ async def play_commnd(
                     forceplay=fplay,
                 )
             except Exception as e:
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
@@ -242,6 +251,8 @@ async def play_commnd(
                         message.from_user.id,
                     )
                 except Exception as e:
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
                     print(e)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "playlist"
@@ -265,6 +276,8 @@ async def play_commnd(
                 try:
                     details, track_id = await YouTube.track(url)
                 except Exception as e:
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
                     print(e)
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "youtube"
@@ -282,7 +295,11 @@ async def play_commnd(
             if "track" in url:
                 try:
                     details, track_id = await Spotify.track(url)
-                except:
+                except Exception as e:
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "youtube"
                 img = details["thumb"]
@@ -299,7 +316,11 @@ async def play_commnd(
             elif "album" in url:
                 try:
                     details, plist_id = await Spotify.album(url)
-                except:
+                except Exception as e:
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "playlist"
                 plist_type = "spalbum"
@@ -308,7 +329,11 @@ async def play_commnd(
             elif "artist" in url:
                 try:
                     details, plist_id = await Spotify.artist(url)
-                except:
+                except Exception as e:
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "playlist"
                 plist_type = "spartist"
@@ -320,7 +345,11 @@ async def play_commnd(
             if "album" in url:
                 try:
                     details, track_id = await Apple.track(url)
-                except:
+                except Exception as e:
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "youtube"
                 img = details["thumb"]
@@ -329,7 +358,11 @@ async def play_commnd(
                 spotify = True
                 try:
                     details, plist_id = await Apple.playlist(url)
-                except:
+                except Exception as e:
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
+                    print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                    traceback.print_exc()
                     return await mystic.edit_text(_["play_3"])
                 streamtype = "playlist"
                 plist_type = "apple"
@@ -340,7 +373,11 @@ async def play_commnd(
         elif await Resso.valid(url):
             try:
                 details, track_id = await Resso.track(url)
-            except:
+            except Exception as e:
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
                 return await mystic.edit_text(_["play_3"])
             streamtype = "youtube"
             img = details["thumb"]
@@ -348,7 +385,11 @@ async def play_commnd(
         elif await SoundCloud.valid(url):
             try:
                 details, track_path = await SoundCloud.download(url)
-            except:
+            except Exception as e:
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
                 return await mystic.edit_text(_["play_3"])
             duration_sec = details["duration_sec"]
             if duration_sec > config.DURATION_LIMIT:
@@ -371,6 +412,8 @@ async def play_commnd(
                     forceplay=fplay,
                 )
             except Exception as e:
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
@@ -385,6 +428,8 @@ async def play_commnd(
                     text=_["play_17"],
                 )
             except Exception as e:
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
                 return await mystic.edit_text(_["general_2"].format(type(e).__name__))
             await mystic.edit_text(_["str_2"])
             try:
@@ -401,6 +446,8 @@ async def play_commnd(
                     forceplay=fplay,
                 )
             except Exception as e:
+                print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+                traceback.print_exc()
                 ex_type = type(e).__name__
                 err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
                 return await mystic.edit_text(err)
@@ -418,7 +465,11 @@ async def play_commnd(
             query = query.replace("-v", "")
         try:
             details, track_id = await YouTube.track(query)
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             return await mystic.edit_text(_["play_3"])
         streamtype = "youtube"
     if str(playmode) == "Direct":
@@ -457,6 +508,8 @@ async def play_commnd(
                 forceplay=fplay,
             )
         except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             ex_type = type(e).__name__
             err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
             return await mystic.edit_text(err)
@@ -530,24 +583,40 @@ async def play_music(client, CallbackQuery, _):
     if CallbackQuery.from_user.id != int(user_id):
         try:
             return await CallbackQuery.answer(_["playcb_1"], show_alert=True)
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             return
     try:
         chat_id, channel = await get_channeplayCB(_, cplay, CallbackQuery)
-    except:
+    except Exception as e:
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         return
     user_name = CallbackQuery.from_user.first_name
     try:
         await CallbackQuery.message.delete()
         await CallbackQuery.answer()
-    except:
+    except Exception as e:
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         pass
     mystic = await CallbackQuery.message.reply_text(
         _["play_2"].format(channel) if channel else _["play_1"]
     )
     try:
         details, track_id = await YouTube.track(vidid, True)
-    except:
+    except Exception as e:
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         return await mystic.edit_text(_["play_3"])
     if details["duration_min"]:
         duration_sec = time_to_seconds(details["duration_min"])
@@ -584,6 +653,8 @@ async def play_music(client, CallbackQuery, _):
             forceplay=ffplay,
         )
     except Exception as e:
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         ex_type = type(e).__name__
         err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
         return await mystic.edit_text(err)
@@ -597,7 +668,11 @@ async def YUKIImous_check(client, CallbackQuery):
             "» ʀᴇᴠᴇʀᴛ ʙᴀᴄᴋ ᴛᴏ ᴜsᴇʀ ᴀᴄᴄᴏᴜɴᴛ :\n\nᴏᴘᴇɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ sᴇᴛᴛɪɴɢs.\n-> ᴀᴅᴍɪɴɪsᴛʀᴀᴛᴏʀs\n-> ᴄʟɪᴄᴋ ᴏɴ ʏᴏᴜʀ ɴᴀᴍᴇ\n-> ᴜɴᴄʜᴇᴄᴋ ᴀɴᴏɴʏᴍᴏᴜs ᴀᴅᴍɪɴ ᴘᴇʀᴍɪssɪᴏɴs.",
             show_alert=True,
         )
-    except:
+    except Exception as e:
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         pass
 
 
@@ -617,17 +692,29 @@ async def play_playlists_command(client, CallbackQuery, _):
     if CallbackQuery.from_user.id != int(user_id):
         try:
             return await CallbackQuery.answer(_["playcb_1"], show_alert=True)
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             return
     try:
         chat_id, channel = await get_channeplayCB(_, cplay, CallbackQuery)
-    except:
+    except Exception as e:
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         return
     user_name = CallbackQuery.from_user.first_name
     await CallbackQuery.message.delete()
     try:
         await CallbackQuery.answer()
-    except:
+    except Exception as e:
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         pass
     mystic = await CallbackQuery.message.reply_text(
         _["play_2"].format(channel) if channel else _["play_1"]
@@ -645,27 +732,47 @@ async def play_playlists_command(client, CallbackQuery, _):
                 CallbackQuery.from_user.id,
                 True,
             )
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             return await mystic.edit_text(_["play_3"])
     if ptype == "spplay":
         try:
             result, spotify_id = await Spotify.playlist(videoid)
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             return await mystic.edit_text(_["play_3"])
     if ptype == "spalbum":
         try:
             result, spotify_id = await Spotify.album(videoid)
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             return await mystic.edit_text(_["play_3"])
     if ptype == "spartist":
         try:
             result, spotify_id = await Spotify.artist(videoid)
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             return await mystic.edit_text(_["play_3"])
     if ptype == "apple":
         try:
             result, apple_id = await Apple.playlist(videoid, True)
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             return await mystic.edit_text(_["play_3"])
     try:
         await stream(
@@ -682,6 +789,8 @@ async def play_playlists_command(client, CallbackQuery, _):
             forceplay=ffplay,
         )
     except Exception as e:
+        print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         ex_type = type(e).__name__
         err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
         return await mystic.edit_text(err)
@@ -704,7 +813,11 @@ async def slider_queries(client, CallbackQuery, _):
     if CallbackQuery.from_user.id != int(user_id):
         try:
             return await CallbackQuery.answer(_["playcb_1"], show_alert=True)
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             return
     what = str(what)
     rtype = int(rtype)
@@ -715,7 +828,11 @@ async def slider_queries(client, CallbackQuery, _):
             query_type = int(rtype + 1)
         try:
             await CallbackQuery.answer(_["playcb_2"])
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             pass
         title, duration_min, thumbnail, vidid = await YouTube.slider(query, query_type)
         buttons = slider_markup(_, vidid, user_id, query, query_type, cplay, fplay)
@@ -736,7 +853,11 @@ async def slider_queries(client, CallbackQuery, _):
             query_type = int(rtype - 1)
         try:
             await CallbackQuery.answer(_["playcb_2"])
-        except:
+        except Exception as e:
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             pass
         title, duration_min, thumbnail, vidid = await YouTube.slider(query, query_type)
         buttons = slider_markup(_, vidid, user_id, query, query_type, cplay, fplay)

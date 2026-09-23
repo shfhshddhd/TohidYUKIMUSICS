@@ -89,7 +89,13 @@ def PlayWrapper(command):
             if message.reply_to_message
             else None
         )
-        url = await YouTube.url(message)
+        try:
+            url = await YouTube.url(message)
+            print(f"[YUKI PLAY TRACE] extracted url={url!r}", flush=True)
+        except Exception as e:
+            print(f"[YUKI PLAY URL ERROR] {type(e).__name__}: {e}", flush=True)
+            traceback.print_exc()
+            raise
         if audio_telegram is None and video_telegram is None and url is None:
             if len(message.command) < 2:
                 if "stream" in message.command:

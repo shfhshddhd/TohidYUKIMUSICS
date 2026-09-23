@@ -25,6 +25,7 @@ import os
 import re
 import aiohttp
 import json
+import traceback
 from typing import Union
 
 import yt_dlp

@@ -44,7 +44,6 @@ jobs:
             fi
           done
       - name: Start bot
-        id: bot
         env:
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
@@ -76,9 +75,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m YUKIIMUSIC &
+          nohup python -m YUKIIMUSIC > "$RUNNER_TEMP/yuki-music.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/yuki-music.pid"
-          wait $!
+          echo "YUKIIMUSICS started with PID $(cat "$RUNNER_TEMP/yuki-music.pid")"
       - name: Verify bot ready
         id: ready
         env:
@@ -86,35 +85,45 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for i in {1..90}; do
+          for i in {1..120}; do
             if [[ -f "$PID_FILE" ]]; then
               pid="$(cat "$PID_FILE")"
-              if kill -0 "$pid" 2>/dev/null; then
-                echo "YUKIIMUSICS process is alive (PID $pid)."
+              if ! kill -0 "$pid" 2>/dev/null; then
+                echo "::error::YUKIIMUSICS exited during startup."
+                tail -n 120 "$RUNNER_TEMP/yuki-music.log" || true
+                exit 1
+              fi
+              if (( i >= 30 )); then
+                echo "YUKIIMUSICS process is alive after startup wait (PID $pid)."
                 exit 0
               fi
             fi
             sleep 1
           done
-          echo "::error::YUKIIMUSICS process did not become ready."
+          echo "::error::YUKIIMUSICS did not become ready."
+          tail -n 120 "$RUNNER_TEMP/yuki-music.log" || true
           exit 1
-      - name: Schedule successor
-        if: success()
+      - name: Monitor and schedule successor
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          sleep 20100
-          gh workflow run run-yuki.yml --repo "$GITHUB_REPOSITORY" --ref main
-      - name: Monitor bot
-        if: success()
-        env:
           PID_FILE: ${{ runner.temp }}/yuki-music.pid
+        shell: bash
         run: |
           set -euo pipefail
+          started="$(date +%s)"
+          dispatched=false
           while true; do
-            [[ -f "$PID_FILE" ]] || { echo "::error::PID file disappeared."; exit 1; }
             pid="$(cat "$PID_FILE")"
-            kill -0 "$pid" 2>/dev/null || { echo "::error::YUKIIMUSICS process stopped."; exit 1; }
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo "::error::YUKIIMUSICS process stopped."
+              tail -n 120 "$RUNNER_TEMP/yuki-music.log" || true
+              exit 1
+            fi
+            age=$(( $(date +%s) - started ))
+            if (( age >= 20100 && dispatched == false )); then
+              echo "Starting successor runner before the 6-hour limit..."
+              gh workflow run run-yuki.yml --repo "$GITHUB_REPOSITORY" --ref main
+              dispatched=true
+            fi
             sleep 30
           done

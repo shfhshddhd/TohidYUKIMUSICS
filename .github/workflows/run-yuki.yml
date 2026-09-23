@@ -56,6 +56,7 @@ jobs:
           ASSUSERNAME: ${{ secrets.ASSUSERNAME }}
           LOGGER_ID: ${{ secrets.LOGGER_ID }}
           STRING_SESSION: ${{ secrets.STRING_SESSION }}
+          LICENSE_KEY: ${{ secrets.LICENSE_KEY }}
           STRING_SESSION2: ${{ secrets.STRING_SESSION2 }}
           STRING_SESSION3: ${{ secrets.STRING_SESSION3 }}
           STRING_SESSION4: ${{ secrets.STRING_SESSION4 }}
@@ -75,6 +76,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ -z "${LICENSE_KEY:-}" ]]; then
+            echo "::error::Missing required secret: LICENSE_KEY"
+            exit 1
+          fi
+          printf 'LICENSE_KEY=%s\n' "$LICENSE_KEY" > .env
           nohup python -m YUKIIMUSIC > "$RUNNER_TEMP/yuki-music.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/yuki-music.pid"
           echo "YUKIIMUSICS started with PID $(cat "$RUNNER_TEMP/yuki-music.pid")"

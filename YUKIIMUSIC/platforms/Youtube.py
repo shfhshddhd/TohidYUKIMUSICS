@@ -216,13 +216,18 @@ class YouTubeAPI:
                 "noplaylist": True,
                 "skip_download": True,
             }
-            if cookie_enabled and os.path.exists(cookies_file):
+            if use_search:
+                # Search only needs result metadata. Flat extraction avoids
+                # forcing a full YouTube player request before we have a video.
+                opts["extract_flat"] = True
+            if cookie_enabled and os.path.exists(cookies_file) and not use_search:
                 opts["cookiefile"] = cookies_file
             with yt_dlp.YoutubeDL(opts) as ydl:
                 return ydl.extract_info(target, download=False)
 
         last_error = None
-        for cookie_enabled in (True, False):
+        cookie_modes = (False,) if use_search else (True, False)
+        for cookie_enabled in cookie_modes:
             try:
                 return await loop.run_in_executor(
                     None, lambda ce=cookie_enabled: extract(ce)
@@ -230,11 +235,48 @@ class YouTubeAPI:
             except Exception as e:
                 last_error = e
                 print(
-                    f"[YUKI YTDLP SEARCH] cookiefile={cookie_enabled} "
+                    f"[YUKI YTDLP INFO ERROR] search={use_search} "
+                    f"cookiefile={cookie_enabled} "
                     f"type={type(e).__name__}: {e}",
                     flush=True,
                 )
         raise last_error
+
+    async def _videos_search_fallback(self, query: str):
+        try:
+            print(
+                f"[YUKI YOUTUBE FALLBACK] VideosSearch start query={query!r}",
+                flush=True,
+            )
+            results = VideosSearch(query, limit=1)
+            response = await results.next()
+            found = response.get("result") or []
+            if not found:
+                raise RuntimeError("VideosSearch returned no results")
+            result = found[0]
+            return {
+                "title": result.get("title"),
+                "link": result.get("link"),
+                "id": result.get("id"),
+                "duration": (
+                    time_to_seconds(result["duration"])
+                    if result.get("duration")
+                    else None
+                ),
+                "thumbnail": (
+                    result["thumbnails"][0]["url"].split("?")[0]
+                    if result.get("thumbnails")
+                    else None
+                ),
+            }
+        except Exception as e:
+            print(
+                f"[YUKI YOUTUBE FALLBACK ERROR] "
+                f"type={type(e).__name__}: {e}",
+                flush=True,
+            )
+            traceback.print_exc()
+            raise
 
     async def track(self, link: str, videoid: Union[bool, str] = None):
         original_link = link
@@ -248,28 +290,40 @@ class YouTubeAPI:
             target = f"ytsearch1:{link}" if is_search else link
 
             print(
-                f"[YUKI YOUTUBE TRACE] yt-dlp track start "
+                f"[YUKI YOUTUBE TRACE] track start "
                 f"target={target!r} search={is_search}",
                 flush=True,
             )
 
-            info = await self._yt_dlp_info(target, use_search=is_search)
-
-            if is_search:
-                entries = info.get("entries") or []
-                if not entries:
-                    raise RuntimeError("yt-dlp YouTube search returned no results")
-                info = entries[0]
+            try:
+                info = await self._yt_dlp_info(target, use_search=is_search)
+                if is_search:
+                    entries = info.get("entries") or []
+                    if not entries:
+                        raise RuntimeError("yt-dlp YouTube search returned no results")
+                    info = entries[0]
+            except Exception as primary_error:
+                if not is_search:
+                    raise
+                print(
+                    f"[YUKI YOUTUBE SEARCH RETRY] yt-dlp failed, "
+                    f"trying VideosSearch: {type(primary_error).__name__}: "
+                    f"{primary_error}",
+                    flush=True,
+                )
+                info = await self._videos_search_fallback(link)
 
             vidid = info.get("id")
-            yturl = info.get("webpage_url") or info.get("original_url")
+            yturl = info.get("webpage_url") or info.get("original_url") or info.get("link")
+            if not yturl and vidid:
+                yturl = self.base + vidid
             title = info.get("title")
             duration_min = self._format_duration(info.get("duration"))
             thumbnail = info.get("thumbnail")
 
             if not vidid or not yturl or not title:
                 raise RuntimeError(
-                    f"yt-dlp returned incomplete track data: "
+                    f"YouTube search returned incomplete track data: "
                     f"id={vidid!r} url={yturl!r} title={title!r}"
                 )
 
@@ -283,7 +337,7 @@ class YouTubeAPI:
             }
 
             print(
-                f"[YUKI YOUTUBE TRACE] yt-dlp track success "
+                f"[YUKI YOUTUBE TRACE] track success "
                 f"vidid={vidid!r} title={title!r}",
                 flush=True,
             )

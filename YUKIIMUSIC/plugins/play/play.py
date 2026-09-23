@@ -131,9 +131,16 @@ async def play_commnd(
             return
     # ====================================================
         
+    print(
+        f"[YUKI PLAY ACTIVITY] command_start chat={message.chat.id} "
+        f"user={message.from_user.id} text={message.text!r} url={url!r} "
+        f"channel={channel!r} playmode={playmode!r} video={video!r} force={fplay!r}",
+        flush=True,
+    )
     mystic = await message.reply_text(
         _["play_2"].format(channel) if channel else _["play_1"]
     )
+    print("[YUKI PLAY ACTIVITY] status_message_sent", flush=True)
     plist_id = None
     slider = None
     plist_type = None
@@ -463,14 +470,25 @@ async def play_commnd(
         query = message.text.split(None, 1)[1]
         if "-v" in query:
             query = query.replace("-v", "")
+        print(f"[YUKI PLAY ACTIVITY] query_search_start query={query!r}", flush=True)
         try:
             details, track_id = await YouTube.track(query)
+            print(
+                f"[YUKI PLAY ACTIVITY] query_search_success "
+                f"track_id={track_id!r} title={details.get('title')!r} "
+                f"url={details.get('link')!r} duration={details.get('duration_min')!r}",
+                flush=True,
+            )
         except Exception as e:
-            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
+            print(f"[YUKI PLAY ERROR] query_search_failed type={type(e).__name__}: {e}", flush=True)
             traceback.print_exc()
-            print(f"[YUKI PLAY ERROR] {type(e).__name__}: {e}")
-            traceback.print_exc()
-            return await mystic.edit_text(_["play_3"])
+            try:
+                await mystic.edit_text(_["play_3"])
+                print("[YUKI PLAY ACTIVITY] sent_failure_message=play_3", flush=True)
+            except Exception as edit_error:
+                print(f"[YUKI PLAY ERROR] failed_to_edit_failure_message type={type(edit_error).__name__}: {edit_error}", flush=True)
+                traceback.print_exc()
+            return
         streamtype = "youtube"
     if str(playmode) == "Direct":
         if not plist_type:

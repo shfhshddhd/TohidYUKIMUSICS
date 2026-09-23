@@ -10,6 +10,10 @@ permissions:
   contents: read
   actions: write
 
+concurrency:
+  group: tohid-yuki-bot
+  cancel-in-progress: true
+
 jobs:
   run-bot:
     runs-on: ubuntu-22.04

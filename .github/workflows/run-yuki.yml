@@ -44,6 +44,8 @@ jobs:
           print("yt-dlp:", yt_dlp.version.__version__)
           import yt_dlp_ejs
           print("yt-dlp-ejs: available")
+          import pytgcalls
+          print("pytgcalls: available")
           PY
       - name: Validate required secrets
         env:

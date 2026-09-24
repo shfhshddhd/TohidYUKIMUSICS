@@ -46,23 +46,39 @@ jobs:
             gh workflow run "$CONTROLLER_WORKFLOW" --repo "$REPO" --ref "$BRANCH"
           }
 
-          runs_json() {
-            gh api --paginate -H "Accept: application/vnd.github+json"               "/repos/$REPO/actions/workflows/$WORKFLOW/runs?branch=$BRANCH&per_page=100" |
-              jq '[.workflow_runs[] | {id,status,conclusion,created_at,run_number}]'
-          }
-
           active_json() {
-            runs_json | jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | sort_by(.created_at)'
+            gh run list               --repo "$REPO"               --workflow "$WORKFLOW"               --branch "$BRANCH"               --limit 100               --json databaseId,status,conclusion,createdAt,number |
+              jq '[.[] |
+                select(
+                  .status == "queued" or
+                  .status == "in_progress" or
+                  .status == "waiting" or
+                  .status == "pending" or
+                  .status == "requested"
+                ) |
+                {
+                  id: .databaseId,
+                  status: .status,
+                  conclusion: .conclusion,
+                  created_at: .createdAt,
+                  run_number: .number
+                }
+              ] | sort_by(.created_at)'
           }
 
           is_ready() {
             local run_id="$1"
+            [[ "$run_id" =~ ^[0-9]+$ ]] || return 1
             gh api -H "Accept: application/vnd.github+json"               "/repos/$REPO/actions/runs/$run_id/jobs?per_page=100" |
-              jq -e '[.jobs[].steps[]? | select(.name == "Verify bot ready" and .conclusion == "success")] | length > 0' >/dev/null
+              jq -e '[.jobs[].steps[]? |
+                select(.name == "Verify bot ready" and .conclusion == "success")
+              ] | length > 0' >/dev/null
           }
 
           cancel_run() {
-            gh api --method POST -H "Accept: application/vnd.github+json"               "/repos/$REPO/actions/runs/$1/cancel" >/dev/null || true
+            local run_id="$1"
+            [[ "$run_id" =~ ^[0-9]+$ ]] || return 0
+            gh api --method POST -H "Accept: application/vnd.github+json"               "/repos/$REPO/actions/runs/$run_id/cancel" >/dev/null || true
           }
 
           while true; do
@@ -89,8 +105,16 @@ jobs:
             newest_number="$(jq -r '.run_number' <<<"$newest")"
             newest_created="$(jq -r '.created_at' <<<"$newest")"
 
+            if ! [[ "$newest_id" =~ ^[0-9]+$ ]]; then
+              echo "Invalid newest run id: $newest_id"
+              sleep 30
+              continue
+            fi
+
+            echo "Watching newest YUKI run #$newest_number (id=$newest_id)"
+
             if is_ready "$newest_id"; then
-              jq -r --arg target "$newest_id" '.[] | select((.id|tostring) != $target) | .id' <<<"$active" |
+              jq -r --arg target "$newest_id"                 '.[] | select((.id|tostring) != $target) | .id' <<<"$active" |
               while read -r old_id; do
                 [[ -n "$old_id" ]] && cancel_run "$old_id"
               done
@@ -104,5 +128,6 @@ jobs:
                 continue
               fi
             fi
+
             sleep 30
           done

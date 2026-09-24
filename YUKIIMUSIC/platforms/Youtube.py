@@ -25,7 +25,6 @@ import os
 import re
 import aiohttp
 import json
-import traceback
 from typing import Union
 
 import yt_dlp
@@ -140,7 +139,7 @@ class YouTubeAPI:
                 for entity in message.entities:
                     if entity.type == MessageEntityType.URL:
                         text = message.text or message.caption
-                        offset, length = entity.offset, entity.length
+                        offset, length = entity.offset, length
                         break
             elif message.caption_entities:
                 for entity in message.caption_entities:
@@ -192,214 +191,21 @@ class YouTubeAPI:
         except: result = []
         return result
 
-    @staticmethod
-    def _format_duration(seconds):
-        if not seconds:
-            return None
-        try:
-            seconds = int(seconds)
-        except (TypeError, ValueError):
-            return None
-        hours, remainder = divmod(seconds, 3600)
-        minutes, secs = divmod(remainder, 60)
-        if hours:
-            return f"{hours}:{minutes:02d}:{secs:02d}"
-        return f"{minutes}:{secs:02d}"
-
-    async def _yt_dlp_info(self, target: str, use_search: bool = False):
-        loop = asyncio.get_running_loop()
-        print(
-            f"[YUKI YTDLP ACTIVITY] extract_start target={target!r} "
-            f"use_search={use_search} cookiefile_exists={os.path.exists(cookies_file)}",
-            flush=True,
-        )
-
-        def extract(cookie_enabled):
-            opts = {
-                "quiet": True,
-                "no_warnings": True,
-                "noplaylist": True,
-                "skip_download": True,
-            }
-            if use_search:
-                # Search is performed anonymously. Cookies are only needed
-                # later when yt-dlp opens the selected video for downloading.
-                opts["extract_flat"] = True
-            if cookie_enabled and os.path.exists(cookies_file):
-                opts["cookiefile"] = cookies_file
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                return ydl.extract_info(target, download=False)
-
-        last_error = None
-        # Search anonymously first, then retry the same search with the
-        # configured cookie file. This gives yt-dlp a chance to work without
-        # account state, while still supporting environments where YouTube
-        # requires authenticated/visitor state. Direct video extraction also
-        # tries cookies first and then anonymous extraction. Never expose the
-        # cookie contents in logs.
-        cookie_modes = (False, True) if use_search else (True, False)
-        for cookie_enabled in cookie_modes:
-            try:
-                result = await loop.run_in_executor(
-                    None, lambda ce=cookie_enabled: extract(ce)
-                )
-                entry_count = "n/a"
-                if isinstance(result, dict):
-                    entries = result.get("entries")
-                    if isinstance(entries, (list, tuple)):
-                        entry_count = len(entries)
-                    elif entries is not None:
-                        entry_count = "present"
-                print(
-                    f"[YUKI YTDLP ACTIVITY] extract_success "
-                    f"cookiefile={cookie_enabled} entries={entry_count}",
-                    flush=True,
-                )
-                return result
-            except Exception as e:
-                last_error = e
-                print(
-                    f"[YUKI YTDLP INFO ERROR] search={use_search} "
-                    f"cookiefile={cookie_enabled} "
-                    f"type={type(e).__name__}: {e}",
-                    flush=True,
-                )
-                traceback.print_exc()
-        raise last_error
-
-    async def _videos_search_fallback(self, query: str):
-        try:
-            print(
-                f"[YUKI YOUTUBE FALLBACK] VideosSearch start query={query!r}",
-                flush=True,
-            )
-            results = VideosSearch(query, limit=1)
-            response = await results.next()
-            found = response.get("result") or []
-            if not found:
-                raise RuntimeError("VideosSearch returned no results")
-            result = found[0]
-            return {
-                "title": result.get("title"),
-                "link": result.get("link"),
-                "id": result.get("id"),
-                "duration": (
-                    time_to_seconds(result["duration"])
-                    if result.get("duration")
-                    else None
-                ),
-                "thumbnail": (
-                    result["thumbnails"][0]["url"].split("?")[0]
-                    if result.get("thumbnails")
-                    else None
-                ),
-            }
-        except Exception as e:
-            print(
-                f"[YUKI YOUTUBE FALLBACK ERROR] "
-                f"type={type(e).__name__}: {e}",
-                flush=True,
-            )
-            traceback.print_exc()
-            raise
-
     async def track(self, link: str, videoid: Union[bool, str] = None):
-        original_link = link
-        try:
-            if videoid:
-                link = self.base + link
-            if "&" in link and "youtube.com" in link:
-                link = link.split("&")[0]
-
-            is_search = not bool(re.search(self.regex, link))
-            target = f"ytsearch1:{link}" if is_search else link
-
-            print(
-                f"[YUKI YOUTUBE TRACE] track start "
-                f"target={target!r} search={is_search}",
-                flush=True,
-            )
-
-            try:
-                print(
-                    f"[YUKI YOUTUBE TRACE] resolving query={link!r} "
-                    f"with yt-dlp search={is_search}",
-                    flush=True,
-                )
-                info = await self._yt_dlp_info(target, use_search=is_search)
-                if is_search:
-                    entries = info.get("entries") or []
-                    if not isinstance(entries, (list, tuple)):
-                        entries = list(entries)
-                    if not entries:
-                        raise RuntimeError("yt-dlp YouTube search returned no results")
-                    info = entries[0]
-            except Exception as primary_error:
-                if not is_search:
-                    raise
-                print(
-                    f"[YUKI YOUTUBE SEARCH RETRY] yt-dlp failed, "
-                    f"trying VideosSearch: {type(primary_error).__name__}: "
-                    f"{primary_error}",
-                    flush=True,
-                )
-                info = await self._videos_search_fallback(link)
-
-            # Flat YouTube search results can omit webpage_url and some
-            # metadata. The video id is sufficient to construct a stable
-            # watch URL, so do not reject an otherwise valid search result.
-            vidid = info.get("id")
-            if isinstance(vidid, str) and vidid.startswith("http"):
-                match = re.search(r"(?:v=|youtu\.be/)([A-Za-z0-9_-]{6,})", vidid)
-                if match:
-                    vidid = match.group(1)
-
-            yturl = (
-                info.get("webpage_url")
-                or info.get("original_url")
-                or info.get("link")
-                or info.get("url")
-            )
-            if isinstance(yturl, str) and yturl.startswith("http"):
-                if "youtube.com/watch" not in yturl and "youtu.be/" not in yturl:
-                    yturl = None
-            if not yturl and vidid:
-                yturl = self.base + vidid
-
-            title = info.get("title")
-            duration_min = self._format_duration(info.get("duration"))
-            thumbnail = info.get("thumbnail")
-
-            if not vidid or not title:
-                raise RuntimeError(
-                    f"YouTube search returned incomplete track data: "
-                    f"id={vidid!r} title={title!r} keys={sorted(info.keys()) if isinstance(info, dict) else type(info).__name__}"
-                )
-
-            track_details = {
-                "title": title,
-                "link": yturl,
-                "vidid": vidid,
-                "duration_min": duration_min,
-                "thumb": thumbnail
-                    or f"https://i.ytimg.com/vi/{vidid}/hqdefault.jpg",
-            }
-
-            print(
-                f"[YUKI YOUTUBE TRACE] track success "
-                f"vidid={vidid!r} title={title!r}",
-                flush=True,
-            )
-            return track_details, vidid
-
-        except Exception as e:
-            print(
-                f"[YUKI YOUTUBE ERROR] link={original_link!r} "
-                f"type={type(e).__name__}: {e}",
-                flush=True,
-            )
-            traceback.print_exc()
-            raise
+        if videoid: link = self.base + link
+        if "&" in link: link = link.split("&")[0]
+        results = VideosSearch(link, limit=1)
+        for result in (await results.next())["result"]:
+            title = result["title"]
+            duration_min = result["duration"]
+            vidid = result["id"]
+            yturl = result["link"]
+            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+        track_details = {
+            "title": title, "link": yturl, "vidid": vidid,
+            "duration_min": duration_min, "thumb": thumbnail
+        }
+        return track_details, vidid
 
     async def formats(self, link: str, videoid: Union[bool, str] = None):
         if videoid: link = self.base + link

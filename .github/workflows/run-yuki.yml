@@ -45,7 +45,10 @@ jobs:
           import yt_dlp_ejs
           print("yt-dlp-ejs: available")
           import pytgcalls
+          from pytgcalls import PyTgCalls, StreamType
+          from pytgcalls.types.input_stream import AudioPiped, AudioVideoPiped
           print("pytgcalls: available")
+          print("pytgcalls legacy StreamType API: available")
           PY
       - name: Validate required secrets
         env:

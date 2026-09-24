@@ -60,6 +60,7 @@ wget
 holidays
 groq
 yt-dlp[default]
+py-tgcalls==2.3.3
 youtube-search
 youtube-search-python
 PyYAML

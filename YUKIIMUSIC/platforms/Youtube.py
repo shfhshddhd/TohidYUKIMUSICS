@@ -231,11 +231,13 @@ class YouTubeAPI:
                 return ydl.extract_info(target, download=False)
 
         last_error = None
-        # Do not attach the saved browser cookies to ytsearch. A stale or
-        # malformed cookie file can break the search request even though the
-        # public YouTube search itself is reachable. Use cookies for direct
-        # video extraction/download instead.
-        cookie_modes = (False,) if use_search else (True, False)
+        # Search anonymously first, then retry the same search with the
+        # configured cookie file. This gives yt-dlp a chance to work without
+        # account state, while still supporting environments where YouTube
+        # requires authenticated/visitor state. Direct video extraction also
+        # tries cookies first and then anonymous extraction. Never expose the
+        # cookie contents in logs.
+        cookie_modes = (False, True) if use_search else (True, False)
         for cookie_enabled in cookie_modes:
             try:
                 result = await loop.run_in_executor(
@@ -343,18 +345,35 @@ class YouTubeAPI:
                 )
                 info = await self._videos_search_fallback(link)
 
+            # Flat YouTube search results can omit webpage_url and some
+            # metadata. The video id is sufficient to construct a stable
+            # watch URL, so do not reject an otherwise valid search result.
             vidid = info.get("id")
-            yturl = info.get("webpage_url") or info.get("original_url") or info.get("link")
+            if isinstance(vidid, str) and vidid.startswith("http"):
+                match = re.search(r"(?:v=|youtu\.be/)([A-Za-z0-9_-]{6,})", vidid)
+                if match:
+                    vidid = match.group(1)
+
+            yturl = (
+                info.get("webpage_url")
+                or info.get("original_url")
+                or info.get("link")
+                or info.get("url")
+            )
+            if isinstance(yturl, str) and yturl.startswith("http"):
+                if "youtube.com/watch" not in yturl and "youtu.be/" not in yturl:
+                    yturl = None
             if not yturl and vidid:
                 yturl = self.base + vidid
+
             title = info.get("title")
             duration_min = self._format_duration(info.get("duration"))
             thumbnail = info.get("thumbnail")
 
-            if not vidid or not yturl or not title:
+            if not vidid or not title:
                 raise RuntimeError(
                     f"YouTube search returned incomplete track data: "
-                    f"id={vidid!r} url={yturl!r} title={title!r}"
+                    f"id={vidid!r} title={title!r} keys={sorted(info.keys()) if isinstance(info, dict) else type(info).__name__}"
                 )
 
             track_details = {

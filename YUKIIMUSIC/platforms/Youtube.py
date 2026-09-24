@@ -222,8 +222,8 @@ class YouTubeAPI:
                 "skip_download": True,
             }
             if use_search:
-                # Search only needs result metadata. Flat extraction avoids
-                # forcing a full YouTube player request before we have a video.
+                # Search is performed anonymously. Cookies are only needed
+                # later when yt-dlp opens the selected video for downloading.
                 opts["extract_flat"] = True
             if cookie_enabled and os.path.exists(cookies_file):
                 opts["cookiefile"] = cookies_file
@@ -231,19 +231,26 @@ class YouTubeAPI:
                 return ydl.extract_info(target, download=False)
 
         last_error = None
-        # Try the saved YouTube cookies first. Some YouTube search/player
-        # requests are rejected or challenged when made anonymously. If the
-        # cookie session fails, retry without cookies before giving up.
-        cookie_modes = (True, False) if use_search else (True, False)
+        # Do not attach the saved browser cookies to ytsearch. A stale or
+        # malformed cookie file can break the search request even though the
+        # public YouTube search itself is reachable. Use cookies for direct
+        # video extraction/download instead.
+        cookie_modes = (False,) if use_search else (True, False)
         for cookie_enabled in cookie_modes:
             try:
                 result = await loop.run_in_executor(
                     None, lambda ce=cookie_enabled: extract(ce)
                 )
+                entry_count = "n/a"
+                if isinstance(result, dict):
+                    entries = result.get("entries")
+                    if isinstance(entries, (list, tuple)):
+                        entry_count = len(entries)
+                    elif entries is not None:
+                        entry_count = "present"
                 print(
                     f"[YUKI YTDLP ACTIVITY] extract_success "
-                    f"cookiefile={cookie_enabled} "
-                    f"entries={len(result.get('entries') or []) if isinstance(result, dict) else 'n/a'}",
+                    f"cookiefile={cookie_enabled} entries={entry_count}",
                     flush=True,
                 )
                 return result
@@ -320,6 +327,8 @@ class YouTubeAPI:
                 info = await self._yt_dlp_info(target, use_search=is_search)
                 if is_search:
                     entries = info.get("entries") or []
+                    if not isinstance(entries, (list, tuple)):
+                        entries = list(entries)
                     if not entries:
                         raise RuntimeError("yt-dlp YouTube search returned no results")
                     info = entries[0]

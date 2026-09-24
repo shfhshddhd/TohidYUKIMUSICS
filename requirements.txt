@@ -62,4 +62,5 @@ groq
 yt-dlp[default]
 youtube-search
 youtube-search-python
+PyYAML
 git+https://github.com/KurimuzonAkuma/pyrogram

@@ -89,11 +89,12 @@ jobs:
           fi
           printf 'LICENSE_KEY=%s\n' "$LICENSE_KEY" > .env
 
-          # Stream all bot stdout/stderr into the GitHub Actions log
-          # while keeping a full copy in the runner temp log file.
-          nohup bash -c 'stdbuf -oL -eL python -u -m YUKIIMUSIC 2>&1 | tee "$1"' _ "$RUNNER_TEMP/yuki-music.log" &
+          # Keep the bot detached, but write its complete stdout/stderr to a file.
+          # The foreground monitor step below tails this file into the Actions log.
+          : > "$RUNNER_TEMP/yuki-music.log"
+          nohup python -u -m YUKIIMUSIC > "$RUNNER_TEMP/yuki-music.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/yuki-music.pid"
-          echo "YUKIIMUSICS started with monitor PID $(cat "$RUNNER_TEMP/yuki-music.pid")"
+          echo "YUKIIMUSICS started with bot PID $(cat "$RUNNER_TEMP/yuki-music.pid")"
 
       - name: Verify bot ready
         id: ready
@@ -130,6 +131,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # GitHub Actions may not reliably stream output from a detached
+          # background process. Tail the bot log from this foreground step so
+          # every print, traceback, and runtime activity is visible in Actions.
+          touch "$RUNNER_TEMP/yuki-music.log"
+          tail -n 0 -F "$RUNNER_TEMP/yuki-music.log" &
+          tail_pid=$!
+          trap 'kill "$tail_pid" 2>/dev/null || true' EXIT
+
           started="$(date +%s)"
           dispatched=false
           while true; do
